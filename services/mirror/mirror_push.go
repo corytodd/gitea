@@ -155,10 +155,11 @@ func runPushSync(ctx context.Context, m *repo_model.PushMirror) error {
 
 		log.Trace("Pushing %s mirror[%d] remote %s", path, m.ID, m.RemoteName)
 
+		// HACK: LP: #2017783 never force push or mirror
 		if err := git.Push(ctx, path, git.PushOptions{
 			Remote:  m.RemoteName,
-			Force:   true,
-			Mirror:  true,
+			Force:   false,
+			Mirror:  false,
 			Timeout: timeout,
 		}); err != nil {
 			log.Error("Error pushing %s mirror[%d] remote %s: %v", path, m.ID, m.RemoteName, err)
