@@ -20,6 +20,7 @@ import (
 	user_model "code.gitea.io/gitea/models/user"
 	"code.gitea.io/gitea/modules/git"
 	"code.gitea.io/gitea/modules/log"
+	"code.gitea.io/gitea/modules/setting"
 	asymkey_service "code.gitea.io/gitea/services/asymkey"
 )
 
@@ -282,6 +283,41 @@ func rebaseTrackingOnToBase(ctx *mergeContext, mergeStyle repo_model.MergeStyle)
 		}
 		return fmt.Errorf("unable to git rebase staging on to base in temp repo for %v: %w\n%s\n%s", ctx.pr, err, ctx.outbuf.String(), ctx.errbuf.String())
 	}
+	ctx.outbuf.Reset()
+	ctx.errbuf.Reset()
+	return nil
+}
+
+// amendReviewTrailersOnToStaging amends the commits on the staging tree to include
+// attestation trailers for all reviewers and a final Signed-off-by for the merge actor.
+func amendReviewTrailersOnToStaging(ctx *mergeContext, mergeStyle repo_model.MergeStyle) error {
+	approvers, err := ctx.prContext.pr.GetApproversAsUsers(false)
+	if err != nil {
+		return fmt.Errorf("unable to GetApproversAsUsers for %v: %w\n%s\n%s", ctx.pr, err, ctx.outbuf.String(), ctx.errbuf.String())
+	}
+
+	// N approvers + 1 SOB
+	trailers := make([]string, 0, len(approvers)+1)
+	for _, approver := range approvers {
+		trailers = append(trailers, fmt.Sprintf("--trailer=\"%s: %s\"", setting.Repository.PullRequest.ApproverTrailerToken, approver.NewGitSig().String()))
+	}
+	trailers = append(trailers, fmt.Sprintf("--trailer=\"Signed-off-by: %s\"", ctx.doer.NewGitSig().String()))
+
+	amend := fmt.Sprintf("git commit --amend --no-edit %s", strings.Join(trailers, " "))
+	ref := fmt.Sprintf("HEAD~%d", ctx.pr.CommitsAhead)
+	log.Trace("Amending trailers '%v' to %s", trailers, ref)
+
+	ctx.outbuf.Reset()
+	ctx.errbuf.Reset()
+
+	// git rebase HEAD~X --exec "git commit --amend --no-edit --trailer ..."
+	if err := git.NewCommand(ctx, "rebase").
+		AddDynamicArguments(ref).
+		AddOptionValues("--exec", amend).
+		Run(ctx.RunOpts()); err != nil {
+		return fmt.Errorf("unable to amend trailers in to staging commits for %v: %w\n%s\n%s", ctx.pr, err, ctx.outbuf.String(), ctx.errbuf.String())
+	}
+
 	ctx.outbuf.Reset()
 	ctx.errbuf.Reset()
 	return nil
