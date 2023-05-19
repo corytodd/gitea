@@ -346,6 +346,19 @@ func doMergeAndPush(ctx context.Context, pr *issues_model.PullRequest, doer *use
 
 func commitAndSignNoAuthor(ctx *mergeContext, message string) error {
 	cmdCommit := git.NewCommand(ctx, "commit").AddOptionFormat("--message=%s", message)
+
+	if setting.Repository.PullRequest.AppendAttestationTrailers {
+		approvers, err := ctx.prContext.pr.GetApproversAsUsers(false)
+		if err != nil {
+			return fmt.Errorf("unable to GetApproversAsUsers for %v: %w\n%s\n%s", ctx.pr, err, ctx.outbuf.String(), ctx.errbuf.String())
+		}
+
+		for _, approver := range approvers {
+			cmdCommit.AddOptionFormat("--trailer=%s: %s", setting.Repository.PullRequest.ApproverTrailerToken, approver.NewGitSig().String())
+		}
+		cmdCommit.AddOptionFormat("--trailer=Signed-off-by: %s", ctx.doer.NewGitSig().String())
+	}
+
 	if ctx.signKeyID == "" {
 		cmdCommit.AddArguments("--no-gpg-sign")
 	} else {
