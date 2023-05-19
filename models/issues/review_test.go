@@ -67,8 +67,21 @@ func TestFindReviews(t *testing.T) {
 		ReviewerID: 1,
 	})
 	assert.NoError(t, err)
-	assert.Len(t, reviews, 1)
+	assert.Len(t, reviews, 2)
 	assert.Equal(t, "Demo Review", reviews[0].Content)
+}
+
+func TestFindReviewsDistinct(t *testing.T) {
+	assert.NoError(t, unittest.PrepareTestDatabase())
+	reviews, err := issues_model.FindReviews(db.DefaultContext, issues_model.FindReviewOptions{
+		Type:       issues_model.ReviewTypeApprove,
+		IssueID:    2,
+		ReviewerID: 1,
+		Distinct:   true,
+	})
+	assert.NoError(t, err)
+	assert.Len(t, reviews, 1)
+	assert.Equal(t, "Duplicate Review (#1)", reviews[0].Content)
 }
 
 func TestGetCurrentReview(t *testing.T) {
