@@ -9,12 +9,19 @@ import (
 	repo_model "code.gitea.io/gitea/models/repo"
 	"code.gitea.io/gitea/modules/git"
 	"code.gitea.io/gitea/modules/log"
+	"code.gitea.io/gitea/modules/setting"
 )
 
 // doMergeStyleRebase rebaases the tracking branch on the base branch as the current HEAD with or with a merge commit to the original pr branch
 func doMergeStyleRebase(ctx *mergeContext, mergeStyle repo_model.MergeStyle, message string) error {
 	if err := rebaseTrackingOnToBase(ctx, mergeStyle); err != nil {
 		return err
+	}
+
+	if setting.Repository.PullRequest.AppendAttestationTrailers {
+		if err := amendReviewTrailersOnToStaging(ctx, mergeStyle); err != nil {
+			return err
+		}
 	}
 
 	// Checkout base branch again
