@@ -375,7 +375,7 @@ func (pr *PullRequest) GetApprovalCounts(ctx context.Context) ([]*ReviewCount, e
 	return rCounts, sess.Select("issue_id, type, count(id) as `count`").Where("official = ? AND dismissed = ?", true, false).GroupBy("issue_id, type").Table("review").Find(&rCounts)
 }
 
-// GetApprovers returns the approvers of the pull request
+// GetApprovers returns the approvers of the pull request as a git trailer
 func (pr *PullRequest) GetApprovers() string {
 	stringBuilder := strings.Builder{}
 	if err := pr.getReviewedByLines(&stringBuilder); err != nil {
@@ -384,6 +384,38 @@ func (pr *PullRequest) GetApprovers() string {
 	}
 
 	return stringBuilder.String()
+}
+
+// GetApproversAsUsers return a list of users that have approved this pll request
+func (pr *PullRequest) GetApproversAsUsers(officialOnly bool) ([]*user_model.User, error) {
+	ctx, committer, err := db.TxContext(db.DefaultContext)
+	if err != nil {
+		return nil, err
+	}
+	defer committer.Close()
+
+	reviews, err := FindReviews(ctx, FindReviewOptions{
+		Type:         ReviewTypeApprove,
+		IssueID:      pr.IssueID,
+		OfficialOnly: officialOnly,
+	})
+	if err != nil {
+		log.Error("Unable to FindReviews for PR ID %d: %v", pr.ID, err)
+		return nil, err
+	}
+
+	approvers := make([]*user_model.User, 0, len(reviews))
+	for _, review := range reviews {
+		if err := review.LoadReviewer(ctx); err != nil && !user_model.IsErrUserNotExist(err) {
+			log.Error("Unable to LoadReviewer[%d] for PR ID %d : %v", review.ReviewerID, pr.ID, err)
+			return nil, err
+		} else if review.Reviewer == nil {
+			continue
+		}
+		approvers = append(approvers, review.Reviewer)
+	}
+
+	return approvers, committer.Commit()
 }
 
 func (pr *PullRequest) getReviewedByLines(writer io.Writer) error {
