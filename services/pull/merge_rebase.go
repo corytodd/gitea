@@ -10,6 +10,7 @@ import (
 	repo_model "code.gitea.io/gitea/models/repo"
 	"code.gitea.io/gitea/modules/git"
 	"code.gitea.io/gitea/modules/log"
+	"code.gitea.io/gitea/modules/setting"
 )
 
 // getRebaseAmendMessage composes the message to amend commits in rebase merge of a pull request.
@@ -101,6 +102,12 @@ func doMergeRebaseMergeCommit(ctx *mergeContext, message string) error {
 func doMergeStyleRebase(ctx *mergeContext, mergeStyle repo_model.MergeStyle, message string) error {
 	if err := rebaseTrackingOnToBase(ctx, mergeStyle); err != nil {
 		return err
+	}
+
+	if setting.Repository.PullRequest.AppendAttestationTrailers {
+		if err := amendReviewTrailersOnToStaging(ctx, mergeStyle); err != nil {
+			return err
+		}
 	}
 
 	// Checkout base branch again
