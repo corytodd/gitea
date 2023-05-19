@@ -86,6 +86,7 @@ var (
 			AddCoCommitterTrailers                   bool
 			TestConflictingPatchesWithGitApply       bool
 			ApproverTrailerToken                     string
+			AppendAttestationTrailers                bool
 		} `ini:"repository.pull-request"`
 
 		// Issue Setting
@@ -212,6 +213,7 @@ var (
 			AddCoCommitterTrailers                   bool
 			TestConflictingPatchesWithGitApply       bool
 			ApproverTrailerToken                     string
+			AppendAttestationTrailers                bool
 		}{
 			WorkInProgressPrefixes: []string{"WIP:", "[WIP]"},
 			// Same as GitHub. See
@@ -227,6 +229,7 @@ var (
 			PopulateSquashCommentWithCommitMessages:  false,
 			AddCoCommitterTrailers:                   true,
 			ApproverTrailerToken:                     "Reviewed-by",
+			AppendAttestationTrailers:                false,
 		},
 
 		// Issue settings
