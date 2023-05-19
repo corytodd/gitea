@@ -105,3 +105,12 @@
   official: true
   updated_unix: 1603196749
   created_unix: 1603196749
+
+-
+  id: 13
+  type: 1
+  reviewer_id: 1
+  issue_id: 2
+  content: "Demo Review (Duplicate)"
+  updated_unix: 946684811
+  created_unix: 946684811
