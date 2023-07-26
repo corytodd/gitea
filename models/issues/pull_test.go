@@ -9,6 +9,7 @@ import (
 	"code.gitea.io/gitea/models/db"
 	issues_model "code.gitea.io/gitea/models/issues"
 	"code.gitea.io/gitea/models/unittest"
+	"code.gitea.io/gitea/modules/setting"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -273,4 +274,15 @@ func TestDeleteOrphanedObjects(t *testing.T) {
 	countAfter, err := db.GetEngine(db.DefaultContext).Count(&issues_model.PullRequest{})
 	assert.NoError(t, err)
 	assert.EqualValues(t, countBefore, countAfter)
+}
+
+func TestGetApprovers(t *testing.T) {
+	assert.NoError(t, unittest.PrepareTestDatabase())
+	pr := unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: 5})
+	// Official reviews are already deduplicated. Allow unofficial reviews
+	// to assert that there are no duplicated approvers.
+	setting.Repository.PullRequest.DefaultMergeMessageOfficialApproversOnly = false
+	approvers := pr.GetApprovers()
+	expected := "Reviewed-by: User Five <user5@example.com>\nReviewed-by: User Six <user6@example.com>\n"
+	assert.EqualValues(t, expected, approvers)
 }
